@@ -17,11 +17,19 @@ import pickle
 ######  YOU NEED TO CHANGE THE BELOW PARAMETERS BEFORE RUNNING THIS SCRIPT  ######
 '''
 
-train_data_rows = 13068#202353#13068
+train_data_rows = 10000#202353#13068
+ipath = 'data/extra/'
+out_file_1 = 'extra_bbox_data.pk1'
+out_file_2 = 'extra_cropped_images_greyscale.pickle'
+'''
+ipath = 'data/test/'
+out_file_1 = 'test_bbox_data.pk1'
+out_file_2 = 'test_cropped_images_greyscale.pickle'
+
 ipath = 'data/train/'
 out_file_1 = 'bbox_data.pk1'
 out_file_2 = 'cropped_images_greyscale.pickle'
-
+'''
 '''
 Function to extract values from HDF5 object references and groups
 
@@ -130,19 +138,19 @@ for k, val in input_data.iteritems():
     cim = img.crop((val['left'],val['top'],val['right'],val['bottom']))
     cim_resized = cim.resize((40,40), resample=Image.LANCZOS)
     n = cim_resized.convert('L')
-    cropped = np.array(n)
-    #normalized_cropped_image = np.divide(cropped,255.0)
+    cropped = np.array(n).astype(np.float64)
+    normalized_cropped_image = cropped - np.mean(cropped)#np.divide(cropped,255.0)#
     temp_dict = {}
-    arr.append(cropped)
+    arr.append(normalized_cropped_image)
     length = len(val['label'])
     labels.append(val['label'] + [10 for i in range(5 - length)])
     if k%5000 == 0:
         print 'processed ' + str(k) + ' images'
 
-arr = np.array(arr)
-carr = arr.astype(np.float64)
-carr -= np.mean(carr, axis = 0)
-carr /= np.std(carr, axis = 0)
+#arr = np.array(arr)
+#carr = arr.astype(np.float64)
+#carr -= np.mean(carr, axis = 0)
+#carr /= np.std(carr, axis = 0)
 p_item = {}
 p_item["dataset"] = np.array(arr)
 p_item["labels"] = np.array(labels)
