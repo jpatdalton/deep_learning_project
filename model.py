@@ -12,17 +12,17 @@ train_data_rows = 33402
 test_data_rows = 13068
 extra_data_rows = 202353
 train_path = 'data/train/'
-batch_size = 75
+batch_size = 128
 num_channels = 1 # images are all greyscale
-depth1 = 12
-depth2 = 24
-depth3 = 32
+depth1 = 16
+depth2 = 25
+depth3 = 36
 filter1_size = 3
 filter2_size = 3
 filter3_size = 3
 filter4_size = 3
 filter5_size = 3
-num_hidden = 128
+num_hidden = 256
 num_labels = 11
 '''
 values can be 0 (no digit) through 10.  0 represents 10
@@ -160,8 +160,10 @@ with graph.as_default():
     layer3_biases = tf.Variable(tf.constant(0.001, shape=[depth3]))
     layer6_filter = tf.Variable(tf.truncated_normal([filter4_size, filter4_size, depth3, depth3], stddev=0.05))
     layer6_biases = tf.Variable(tf.constant(0.001, shape=[depth3]))
-    layer7_filter = tf.Variable(tf.truncated_normal([filter5_size, filter5_size, depth3, depth2], stddev=0.05))
-    layer7_biases = tf.Variable(tf.constant(0.001, shape=[depth2]))
+    layer7_filter = tf.Variable(tf.truncated_normal([filter5_size, filter5_size, depth3, depth3], stddev=0.05))
+    layer7_biases = tf.Variable(tf.constant(0.001, shape=[depth3]))
+    layer8_filter = tf.Variable(tf.truncated_normal([filter5_size, filter5_size, depth3, depth2], stddev=0.05))
+    layer8_biases = tf.Variable(tf.constant(0.001, shape=[depth2]))
 
     layer4_weights = tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 16 * depth2, num_hidden], stddev=0.05))
     layer4_biases = tf.Variable(tf.zeros([num_hidden]))
@@ -179,36 +181,43 @@ with graph.as_default():
     def model(data, train=None):
         conv = tf.nn.conv2d(data, layer1_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer1_biases)
-        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
+        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
         if train:
-            pool = tf.nn.dropout(pool,.7)
+            pool = tf.nn.dropout(pool,.6)
 
         conv = tf.nn.conv2d(pool, layer2_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer2_biases)
-        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
+        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
         if train:
-            pool = tf.nn.dropout(pool,.7)
+            pool = tf.nn.dropout(pool,.6)
 
         conv = tf.nn.conv2d(pool, layer3_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer3_biases)
-        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
+        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
         if train:
-            pool = tf.nn.dropout(pool,.7)
+            pool = tf.nn.dropout(pool,.6)
 
         conv = tf.nn.conv2d(pool, layer6_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer6_biases)
-        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
+        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
 
         if train:
-             pool = tf.nn.dropout(pool,.7)
+             pool = tf.nn.dropout(pool,.6)
 
 
         conv = tf.nn.conv2d(pool, layer7_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer7_biases)
+        pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
+
+        if train:
+            pool = tf.nn.dropout(pool,.6)
+
+        conv = tf.nn.conv2d(pool, layer8_filter, [1, 1, 1, 1], padding='SAME')
+        hidden = tf.nn.relu(conv + layer8_biases)
         pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
 
         if train:
-            pool = tf.nn.dropout(pool,.7)
+            pool = tf.nn.dropout(pool,.6)
 
         shape = pool.get_shape().as_list()
 
@@ -231,7 +240,7 @@ with graph.as_default():
     #global_step = tf.Variable(0, trainable=False)
     #starter_learning_rate = .01
     #learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 2000, 0.96, staircase=True)
-    optimizer = tf.train.AdamOptimizer(.0008).minimize(loss)#, global_step=global_step)
+    optimizer = tf.train.AdamOptimizer(.0005).minimize(loss)#, global_step=global_step)
     #optimizer = tf.train.AdamOptimizer(.01).minimize(loss)
 
     # Predictions for the training, validation, and test data.
@@ -252,7 +261,7 @@ start_time = timeit.default_timer()
 with tf.Session(graph=graph) as session:
     tf.initialize_all_variables().run()
     saver = tf.train.Saver()
-    #saver.restore(session, "saved_models/model07.ckpt")
+    #saver.restore(session, "saved_models/model10.ckpt")
     #print("Model restored.")
     #print('Initialized')
     for step in range(num_steps):
@@ -262,13 +271,13 @@ with tf.Session(graph=graph) as session:
         feed_dict = {tf_train_dataset : batch_data, tf_train_labels : batch_labels}
         #print feed_dict
         _, l, predictions = session.run([optimizer, loss, train_prediction], feed_dict=feed_dict)
-        if (step % 250 == 0):
+        if (step % 500 == 0):
             print('Minibatch loss at step %d: %f' % (step, l))
             print('Minibatch accuracy: %.1f%%' % accuracy(predictions, batch_labels))
             print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
 
     print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
-    save_path = saver.save(session, "saved_models/model07.ckpt")
+    save_path = saver.save(session, "saved_models/model10.ckpt")
     print("Model saved in file: %s" % save_path)
 elapsed = timeit.default_timer() - start_time
 print ('TIME: ' + str(elapsed))
