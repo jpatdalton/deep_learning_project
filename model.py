@@ -17,11 +17,11 @@ num_channels = 1 # images are all greyscale
 depth1 = 12
 depth2 = 24
 depth3 = 32
-filter1_size = 4
-filter2_size = 4
-filter3_size = 4
-filter4_size = 4
-filter5_size = 4
+filter1_size = 3
+filter2_size = 3
+filter3_size = 3
+filter4_size = 3
+filter5_size = 3
 num_hidden = 128
 num_labels = 11
 '''
@@ -181,26 +181,26 @@ with graph.as_default():
         hidden = tf.nn.relu(conv + layer1_biases)
         pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
         if train:
-            pool = tf.nn.dropout(pool,.8)
+            pool = tf.nn.dropout(pool,.7)
 
         conv = tf.nn.conv2d(pool, layer2_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer2_biases)
         pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
         if train:
-            pool = tf.nn.dropout(pool,.8)
+            pool = tf.nn.dropout(pool,.7)
 
         conv = tf.nn.conv2d(pool, layer3_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer3_biases)
         pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
         if train:
-            pool = tf.nn.dropout(pool,.8)
+            pool = tf.nn.dropout(pool,.7)
 
         conv = tf.nn.conv2d(pool, layer6_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer6_biases)
         pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
 
         if train:
-             pool = tf.nn.dropout(pool,.8)
+             pool = tf.nn.dropout(pool,.7)
 
 
         conv = tf.nn.conv2d(pool, layer7_filter, [1, 1, 1, 1], padding='SAME')
@@ -208,7 +208,7 @@ with graph.as_default():
         pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
 
         if train:
-            pool = tf.nn.dropout(pool,.8)
+            pool = tf.nn.dropout(pool,.7)
 
         shape = pool.get_shape().as_list()
 
@@ -231,7 +231,7 @@ with graph.as_default():
     #global_step = tf.Variable(0, trainable=False)
     #starter_learning_rate = .01
     #learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 2000, 0.96, staircase=True)
-    optimizer = tf.train.AdamOptimizer(.0005).minimize(loss)#, global_step=global_step)
+    optimizer = tf.train.AdamOptimizer(.0008).minimize(loss)#, global_step=global_step)
     #optimizer = tf.train.AdamOptimizer(.01).minimize(loss)
 
     # Predictions for the training, validation, and test data.
@@ -250,11 +250,11 @@ with graph.as_default():
 num_steps = 10000
 start_time = timeit.default_timer()
 with tf.Session(graph=graph) as session:
-    #tf.initialize_all_variables().run()
-    #saver = tf.train.Saver()
-    saver.restore(session, "saved_models/model06.ckpt")
-    print("Model restored.")
-    print('Initialized')
+    tf.initialize_all_variables().run()
+    saver = tf.train.Saver()
+    #saver.restore(session, "saved_models/model07.ckpt")
+    #print("Model restored.")
+    #print('Initialized')
     for step in range(num_steps):
         offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
         batch_data = train_dataset[offset:(offset + batch_size), :, :, :]
@@ -268,7 +268,7 @@ with tf.Session(graph=graph) as session:
             print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
 
     print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
-    save_path = saver.save(session, "saved_models/model06.ckpt")
+    save_path = saver.save(session, "saved_models/model07.ckpt")
     print("Model saved in file: %s" % save_path)
 elapsed = timeit.default_timer() - start_time
 print ('TIME: ' + str(elapsed))
