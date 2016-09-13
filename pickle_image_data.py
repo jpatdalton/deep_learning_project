@@ -3,7 +3,6 @@ __author__ = 'jpatdalton'
 '''
 This file processes format #1 from http://ufldl.stanford.edu/housenumbers/
 '''
-
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from PIL import Image
@@ -30,16 +29,17 @@ ipath = 'data/train/'
 out_file_1 = 'bbox_data.pk1'
 out_file_2 = 'cropped_images_greyscale.pickle'
 '''
-'''
-Function to extract values from HDF5 object references and groups
 
-f: digitStruct file
-obj: HDF5 group
-label: label in group
-
-'''
-'''
 def extract_value(f, obj, label, count = 0):
+    '''Function to extract values from HDF5 object references and groups
+
+    Args:
+        f: h5py file object
+        obj: object to extract
+        label: label of feature
+    Returns:
+        Extracted value.
+    '''
     ref = obj[label]
     if len(ref) == 1:
         return [ref[0][0]]
@@ -49,14 +49,13 @@ def extract_value(f, obj, label, count = 0):
         print 'Encountered length greater than 5 to extract, too long of a street number! Length is ' + str(len(ref)) + ' count is ' + str(count)
         return [f[ref[i][0]][0][0] for i in range(len(ref))]
 
-# Can't load this file with scipy, need h5py
-
+# Can't load this file with scipy, need h5py to load.
 f = h5py.File(ipath+'digitStruct.mat','r')
 
 count = 1
 data = dict()
 
-# Loop over elements in bbox dataset and create python dictionary from them
+# Loop over elements in bbox dataset and create python dictionary from them.
 for bbox in f['digitStruct/bbox']:
     obj = f[bbox[0]]
     temp_dict = dict()
@@ -81,8 +80,6 @@ except Exception as e:
         print 'Save pickle data exception to file: ' + str(out_file) + ' - ' + str(e)
         raise e
 
-
-'''
 '''
 Importing training data that we already have preprocessed to a pickle file
 33402 rows with attributes of left, top, height, width, label
@@ -111,7 +108,9 @@ ida = input_data[int(img_num)]
 print 'Image #' + img_num + ' value is = ' + str(ida['label'])
 img=mpimg.imread(ipath + str(img_num) + '.png')
 plt.imshow(img[ida['top']:ida['bottom'],ida['left']:ida['right']])
+
 '''
+OPTIONAL: Save this data here (uncomment code) for different preprocessing of your choice
 try:
     with open('test1.pickle', 'wb') as input_data_file:
         pickle.dump(input_data, input_data_file)
@@ -120,7 +119,6 @@ except Exception as e:
     print 'Save pickle data exception to file: ' + str(input_data_file) + ' - ' + str(e)
     raise e
 
-
 with open('test1.pickle', 'rb') as pickled_data:
     data_dict = pickle.load(pickled_data)
 
@@ -128,8 +126,7 @@ assert(len(data_dict) == train_data_rows)
 print 'Successfully imported image location data'
 '''
 
-
-# crop images to 40x40, greyscale, and save to pickle
+# Crop images to 40x40, greyscale, and save to pickle.
 crop_data = {}
 arr = list()
 labels = list()
@@ -147,13 +144,11 @@ for k, val in input_data.iteritems():
     if k%5000 == 0:
         print 'processed ' + str(k) + ' images'
 
-#arr = np.array(arr)
-#carr = arr.astype(np.float64)
-#carr -= np.mean(carr, axis = 0)
-#carr /= np.std(carr, axis = 0)
 p_item = {}
 p_item["dataset"] = np.array(arr)
 p_item["labels"] = np.array(labels)
+
+# Save data to file for model.py
 try:
     with open(out_file_2, 'wb') as pickle_file:
         pickle.dump(p_item,pickle_file)
@@ -163,46 +158,6 @@ except Exception as e:
     raise e
 
 '''
-with open(out_file_2, 'rb') as pickled_data:
-    data_dict = pickle.load(pickled_data)
-
-#assert(len(data_dict) == train_data_rows)
-print 'Successfully imported image location data'
-
-for i in range(5):
-    img_num = str(int(random.random()*train_data_rows))
-    ida = data_dict[int(img_num)]
-    print 'Image #' + img_num + ' value is = ' + ida['y']
-    # images are greyscale normalized to between 0 and 1, so we multiply by max(greyscale_value) = 255
-    im = Image.fromarray(np.multiply(ida['X'], 255.0))
-    image_size = ida['X'].shape[0]
-    im.show()
-
-arr = list()
-labels = list()
-for k,v in test_data_dict.iteritems():
-    arr.append(v['X'])
-    length = len(v['y'])
-    labels.append(np.array([int(v['y'][i]) for i in range(length)] + [-1 for i in range(5 - length)]))
-p_item = {}
-p_item["dataset"] = np.array(arr)
-p_item["labels"] = np.array(labels)
-try:
-    with open('cropped_images_greyscale.pickle', 'wb') as pickle_file:
-        pickle.dump(p_item,pickle_file)
-        print 'pickle dump success'
-except Exception as e:
-    print 'Save pickle data exception to file: ' + str(pickle_file) + ' - ' + str(e)
-    raise e
-
-
-
-img_num = str(int(random.random()*train_data_rows))
-img=mpimg.imread(train_path + img_num + '.png')
-print 'Image #' + img_num + ' shape: ' + str(img.shape)
-ida = data_dict[int(img_num)]
-plt.imshow(img[ida['top']:ida['bottom'],ida['left']:ida['right']])
-
 data exploration to try to find out how to crop, rotate, resize data
 - found that about half the images have higher height than width
 - 2785 images have height > 2*width or vice versa
@@ -211,65 +166,4 @@ data exploration to try to find out how to crop, rotate, resize data
 average height, width (respectively)
 37.0859229986
 36.2566014011
-
-Chose to make 38*38 size images
-
-
-count = 0
-h = 0
-w = 0
-for k,v in data_dict.iteritems():
-    h += v['bottom'] - v['top']
-    w += v['right'] - v['left']
-
-    if (v['bottom'] - v['top'])*3 < (v['right'] - v['left']) or (v['bottom'] - v['top']) > 3*(v['right'] - v['left']):
-        count += 1
-        print 'Image #' + str(k) + ' has a height of ' +  str(v['bottom'] - v['top']) + ' but its width is ' + str(v['right'] - v['left'])
-
-print h/train_data_rows
-print w/train_data_rows
-
-
-
-
-for i in range(1,100):
-    img=mpimg.imread(train_path + str(i) + '.png')
-    shape = img.shape
-    max_height = shape[0]
-    max_width = shape[1]
-    val = data_dict[i]
-    height = val['bottom'] - val['top']
-    width = val['right'] - val['left']
-    if width > height:
-        diff = width - height
-        longer = diff/2
-        if longer + val['bottom'] > max_height:
-            print shape
-            print 'Image #' + str(i) + ' has a width of ' + str(width) + ' and a height of ' + str(height) + ' and is ' + str(longer+val['bottom']- max_height) + ' over the limit'
-        if val['top'] - longer < 0:
-            print shape
-            print 'Image #' + str(i) + ' has a width of ' + str(width) + ' and a height of ' + str(height) + ' and is ' + str(val['top']-longer) + ' under 0'
-    elif width < height:
-        diff = height - width
-        longer = diff/2
-        if longer + val['right'] > max_width:
-            print shape
-            print 'Image #' + str(i) + ' has a width of ' + str(width) + ' and a height of ' + str(height) + ' and is ' + str(longer+val['right']- max_width) + ' over the limit'
-        if val['left'] - longer < 0:
-            print shape
-            print 'Image #' + str(i) + ' has a width of ' + str(width) + ' and a height of ' + str(height) + ' and is ' + str(val['left']-longer) + ' under 0'
-
-
-# pick random image to open, then open individual characters to ensure everything is normal
-img_num = str(int(random.random()*train_data_rows))
-img=mpimg.imread(train_path + img_num + '.png')
-plt.imshow(img)
-#input('Press any key to continue')
-print 'Image #' + img_num + ' shape: ' + str(img.shape)
-img_data = data_dict[int(img_num)]
-house_number = ''
-for i in range(len(img_data['label'])):
-    plt.imshow(img[img_data['top'][i]:img_data['top'][i] + img_data['height'][i], img_data['left'][i]:img_data['left'][i] + img_data['width'][i]])
-    house_number += str(int(img_data['label'][i]))
-print 'House number is ' + house_number
 '''

@@ -163,3 +163,4 @@ def predict(image):
         print str(predictions)
         return np.argmax(predictions, 2)
 
+process('111')
