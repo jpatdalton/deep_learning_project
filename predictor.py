@@ -124,14 +124,14 @@ with graph.as_default():
     train_prediction = tf.pack([tf.nn.softmax(logits1),tf.nn.softmax(logits2),tf.nn.softmax(logits3),tf.nn.softmax(logits4),tf.nn.softmax(logits5)])
 
 
-def process(name):
+def process(file_name):
     '''Opens an image file, resizes to 40x40 pixels, converts to greyscale, subtracts mean value of image's pixels and prints the predicted number.
 
     Args:
         name: The name of the file (you must change the ipath to what your path is).
 
     '''
-    img=Image.open(ipath + str(name) + '.png')
+    img=Image.open(str(file_name))
     cim_resized = img.resize((40,40), resample=Image.LANCZOS)
     n = cim_resized.convert('L')
     cropped = np.array(n).astype(np.float64)
@@ -142,6 +142,24 @@ def process(name):
     predicted_arr = predict(normalized_cropped_image)
     label = ''.join(['' if int(x[0]) == 10 else str(x[0]) for x in list(predicted_arr)])
     print 'LABEL: ' + label
+
+
+def process_array(arr, session):
+    '''Opens an image file, resizes to 40x40 pixels, converts to greyscale, subtracts mean value of image's pixels and prints the predicted number.
+
+    Args:
+        name: The name of the file (you must change the ipath to what your path is).
+
+    '''
+    img=Image.fromarray(arr)
+    cim_resized = img.resize((40,40), resample=Image.LANCZOS)
+    n = cim_resized.convert('L')
+    cropped = np.array(n).astype(np.float64)
+    #normalized_cropped_image = cropped - np.mean(cropped)
+    normalized_cropped_image = cropped.reshape((-1, image_size, image_size, num_channels)).astype(np.float32)
+    predicted_arr = predict_live(normalized_cropped_image, session)
+    label = ''.join(['' if int(x[0]) == 10 else str(x[0]) for x in list(predicted_arr)])
+    print 'NUMBER IS : ' + label
 
 
 def predict(image):
@@ -163,4 +181,25 @@ def predict(image):
         print str(predictions)
         return np.argmax(predictions, 2)
 
-process('111')
+
+
+
+
+def predict_live(image, session):
+    '''Loads a trained model and gets predicted value for image.
+
+    Args:
+        image: A numpy array of a 40x40 greyscale image with mean subtraction.
+
+    Returns:
+        An array of predicted values (10 means no value).
+    '''
+
+    feed_dict = {tf_sample_dataset : image}
+    predictions = session.run(train_prediction, feed_dict=feed_dict)
+
+    return np.argmax(predictions, 2)
+
+
+
+
