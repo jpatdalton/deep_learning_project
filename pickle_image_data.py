@@ -13,15 +13,17 @@ import pickle
 
 
 def extract_value(f, obj, label, count = 0):
-    '''Function to extract values from HDF5 object references and groups
+    """Function to extract values from HDF5 object references and groups
 
     Args:
         f: h5py file object
         obj: object to extract
         label: label of feature
+        count: counter for number of images
+
     Returns:
         Extracted value.
-    '''
+    """
     ref = obj[label]
     if len(ref) == 1:
         return [ref[0][0]]
@@ -33,6 +35,13 @@ def extract_value(f, obj, label, count = 0):
 
 # Can't load this file with scipy, need h5py to load.
 def load_matlab_file(ipath, out_file_1):
+    """Function to load .mat bounding box file provided from SVHN dataset and convert it into Python dictionaries
+
+    Args:
+        ipath: relative path to file
+        out_file_1: file to save Python dictionaries to
+
+    """
     f = h5py.File(ipath+'digitStruct.mat','r')
 
     count = 1
@@ -64,10 +73,21 @@ def load_matlab_file(ipath, out_file_1):
             raise e
 
 def preprocess_images(ipath, out_file_1, out_file_2, data_rows):
-    '''
-    Importing training data that we already have preprocessed to a pickle file
-    33402 rows with attributes of left, top, height, width, label
-    '''
+    """Function to perform preprocessing of images.
+
+    Imports training data from a Pickle file, and crops images based on bounding box data. Converts to greyscale and 40x40 pixel resolution.
+    Saves the preprocessed data to out_file_2.
+
+    There is commented out functionality to save the intermediate data dictionary to a file.  This is only useful if you want to use the
+    intermediate bounding box dictionaries created.
+
+    Args:
+        ipath: relative path to images from SVHN dataset
+        out_file_1: Pickled python dictionary data of bounding boxes
+        out_file_2: File to save preprocessed data
+        data_rows: Number of images in dataset to preprocess
+
+    """
     with open(out_file_1, 'rb') as pickled_data:
         data_dict = pickle.load(pickled_data)
 
@@ -93,7 +113,7 @@ def preprocess_images(ipath, out_file_1, out_file_2, data_rows):
     img=mpimg.imread(ipath + str(img_num) + '.png')
     plt.imshow(img[ida['top']:ida['bottom'],ida['left']:ida['right']])
 
-
+    '''
     #OPTIONAL: Save this data here (uncomment code) for different preprocessing of your choice
     try:
         with open('test1.pickle', 'wb') as input_data_file:
@@ -108,7 +128,7 @@ def preprocess_images(ipath, out_file_1, out_file_2, data_rows):
 
     assert(len(data_dict) == train_data_rows)
     print 'Successfully imported image location data'
-
+    '''
 
     # Crop images to 40x40, greyscale, and save to pickle.
     arr = list()
@@ -119,7 +139,7 @@ def preprocess_images(ipath, out_file_1, out_file_2, data_rows):
         cim_resized = cim.resize((40,40), resample=Image.LANCZOS)
         n = cim_resized.convert('L')
         cropped = np.array(n).astype(np.float64)
-        normalized_cropped_image = cropped - np.mean(cropped)#np.divide(cropped,255.0)#
+        normalized_cropped_image = cropped - np.mean(cropped)
         arr.append(normalized_cropped_image)
         length = len(val['label'])
         labels.append(val['label'] + [10 for i in range(5 - length)])

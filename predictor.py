@@ -1,8 +1,9 @@
 __author__ = 'jpatdalton'
 
-'''This file contains the model and code to predict the digits of a house number
+'''This file contains the model and code to predict the digits of a house number.
 
-Usage: process('image_name')
+It has methods to produce a prediction on image arrays and image files.
+
 '''
 
 import tensorflow as tf
@@ -62,7 +63,7 @@ with graph.as_default():
     layer5_biases5 = tf.Variable(tf.constant(0.001, shape=[num_labels]))
 
     def model(data, train=None):
-        '''Builds the 8 layer deep convolutional network.
+        """Builds the 8 layer deep convolutional network.
 
         The first 6 layers are convolutional, and the last two are fully connected.
 
@@ -74,7 +75,7 @@ with graph.as_default():
 
         Returns:
             5 logits calculated from data running through network
-        '''
+        """
 
         conv = tf.nn.conv2d(data, layer1_filter, [1, 1, 1, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer1_biases)
@@ -125,12 +126,12 @@ with graph.as_default():
 
 
 def process(file_name):
-    '''Opens an image file, resizes to 40x40 pixels, converts to greyscale, subtracts mean value of image's pixels and prints the predicted number.
+    """Opens an image file, resizes to 40x40 pixels, converts to greyscale, subtracts mean value of image's pixels and prints the predicted number.
 
     Args:
-        name: The name of the file (you must change the ipath to what your path is).
+        name: The name of the file (relative to your current path).
 
-    '''
+    """
     img=Image.open(str(file_name))
     cim_resized = img.resize((40,40), resample=Image.LANCZOS)
     n = cim_resized.convert('L')
@@ -145,32 +146,36 @@ def process(file_name):
 
 
 def process_array(arr, session):
-    '''Opens an image file, resizes to 40x40 pixels, converts to greyscale, subtracts mean value of image's pixels and prints the predicted number.
+    """Takes in an image NumPy array and predicts the number in the image.
+
+    This is the function used for predicting images captured with a computer camera.
+    It converts the prediction array into a string printed to the terminal.
 
     Args:
-        name: The name of the file (you must change the ipath to what your path is).
+        name: The image NumPy array.
+        session: The active Tensorflow session
 
-    '''
-    img=Image.fromarray(arr)
+    """
+    img = Image.fromarray(arr)
     cim_resized = img.resize((40,40), resample=Image.LANCZOS)
     n = cim_resized.convert('L')
     cropped = np.array(n).astype(np.float64)
-    #normalized_cropped_image = cropped - np.mean(cropped)
-    normalized_cropped_image = cropped.reshape((-1, image_size, image_size, num_channels)).astype(np.float32)
+    normalized_cropped_image = cropped - np.mean(cropped)
+    normalized_cropped_image = normalized_cropped_image.reshape((-1, image_size, image_size, num_channels)).astype(np.float32)
     predicted_arr = predict_live(normalized_cropped_image, session)
     label = ''.join(['' if int(x[0]) == 10 else str(x[0]) for x in list(predicted_arr)])
     print 'NUMBER IS : ' + label
 
 
 def predict(image):
-    '''Loads a trained model and gets predicted value for image.
+    """Loads a trained model and gets predicted value for image.
 
     Args:
         image: A numpy array of a 40x40 greyscale image with mean subtraction.
 
     Returns:
         An array of predicted values (10 means no value).
-    '''
+    """
     with tf.Session(graph=graph) as session:
         saver = tf.train.Saver()
         saver.restore(session, "saved_models/model12.ckpt")
@@ -182,18 +187,18 @@ def predict(image):
         return np.argmax(predictions, 2)
 
 
-
-
-
 def predict_live(image, session):
-    '''Loads a trained model and gets predicted value for image.
+    """Takes an image array and produces a prediction from a loaded model.
+
+    This is used in the Live Camera App.
 
     Args:
         image: A numpy array of a 40x40 greyscale image with mean subtraction.
+        session: An active Tensorflow session.
 
     Returns:
         An array of predicted values (10 means no value).
-    '''
+    """
 
     feed_dict = {tf_sample_dataset : image}
     predictions = session.run(train_prediction, feed_dict=feed_dict)
