@@ -9,7 +9,8 @@ cv2<br>
 matplotlib<br>
 h5py<br>
 
-You should ensure they are available in your environment before running any of the code.
+You should ensure they are available in your environment before running any of the code.  <br>
+FYI: I had a few issues with PIL when testing, but uninstalling PIL and pillow then reinstalling just pillow fixed them.
 
 You must first download the SVHN dataset to begin.  Download the training and test set:
 
@@ -31,11 +32,17 @@ master_script.execute(num_steps=2000)
 
 
 TO PREDICT SINGLE IMAGES:<br>
+
+note: The image should be cropped around the number.  There is no localizer, so prediction will not work well on numbers that take up a small part of the image<br>
+
 import predictor<br>
 predictor.process(file_name)
 
 
 LIVE CAMERA APPLICATION (Only tested on Mac OS X 10.11):<br>
+
+note: This application also requires numbers to take up a majority of the image.  There should be little extra space in the image outside of the number.  It will not work on numbers far away from your camera.  
+I'd suggest opening up photo booth to see what you are showing the camera.  
 import mac_camera_app<br>
 mac_camera_app.execute(model_file)
 
