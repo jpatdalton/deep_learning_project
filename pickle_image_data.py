@@ -136,7 +136,7 @@ def preprocess_images(ipath, out_file_1, out_file_2, data_rows):
     for k, val in input_data.iteritems():
         img=Image.open(ipath + str(k) + '.png')
         cim = img.crop((val['left'],val['top'],val['right'],val['bottom']))
-        cim_resized = cim.resize((40,40), resample=Image.ANTIALIAS)
+        cim_resized = cim.resize((40,40), resample=Image.LANCZOS)
         n = cim_resized.convert('L')
         cropped = np.array(n).astype(np.float64)
         normalized_cropped_image = cropped - np.mean(cropped)
