@@ -16,6 +16,7 @@ import numpy as np
 import random
 import timeit
 import pickle
+from sklearn.cross_validation import KFold
 
 # Constants
 training = False    # Change this if you want to train on more data!
@@ -117,13 +118,13 @@ def load_pickles(test_file, train_file):
     def reformat(dataset, labels):
         dataset = dataset.reshape((-1, image_size, image_size, num_channels)).astype(np.float32)
         return dataset, labels
-
+    '''
     size_dict = dict()
     for i in range(1,7):
         size_dict[i] = 0
-    for label in train_labels:
+    for label in test_labels:
         size_dict[len(''.join(['' if int(x) == 10 else str(x) for x in list(label)]))] += 1
-
+    '''
 
     train_dataset, train_labels = reformat(train_ds, train_labels)
     test_dataset, test_labels = reformat(test_ds, test_labels)
@@ -376,5 +377,153 @@ def create_and_run_model(train_dataset, train_labels, valid_dataset, valid_label
     print ('TIME TO RUN: ' + str(elapsed))
 
 
+def eval_robustness(test_dataset, test_labels, nfolds):
+    '''Function to evaluate robustness of a model using kfold validation
 
+    Args:
+        test_dataset: a dataset to test out the accuracy metrics on
+        test_labels: corresponding labels to test out accuracy metrics on
+        nfolds: number of folds to split data into
+
+    '''
+    kf = KFold(len(test_labels), n_folds=nfolds, shuffle=True, random_state=23)
+    total_accuracy = list()
+    total_per_seq_accuracy = list()
+    total_coverage_accuracy = 0
+    total_coverage = 0
+    for _, test_idx in kf:
+        temp_labels = list()
+        temp_ds = list()
+        for idx in test_idx:
+            temp_labels.append(test_labels[idx])
+            temp_ds.append(test_dataset[idx])
+        temp_labels = np.array(temp_labels)
+        graph, test_prediction = create_model_for_robustness_test(np.array(temp_ds))
+        with tf.Session(graph=graph) as session:
+
+            saver = tf.train.Saver()
+            saver.restore(session, 'saved_models/model12.ckpt')
+            print("Model restored.")
+
+            preds = test_prediction.eval()
+            temp_accuracy = accuracy(preds, temp_labels)
+            total_accuracy.append(temp_accuracy)
+            temp_per_seq_accuracy = per_seq_accuracy(preds, temp_labels)
+            total_per_seq_accuracy.append(temp_per_seq_accuracy)
+            temp_coverage, temp_coverage_accuracy = coverage_accuracy(preds, temp_labels)
+            total_coverage += temp_coverage
+            total_coverage_accuracy += temp_coverage_accuracy
+            print('Test accuracy per digit: %.1f%%' % temp_accuracy)
+            print('Test accuracy per sequence: %.1f%%' % temp_per_seq_accuracy)
+            print('Test accuracy coverage: %.1f%% at %.1f%% percent' % (temp_coverage, temp_coverage_accuracy))
+    print 'Standard deviation of accuracy per digit ' + str(np.std(np.array(total_accuracy)))
+    print 'Standard deviation accuracy per sequence ' + str(np.std(np.array(total_per_seq_accuracy)))
+    print 'Average coverage ' + str(total_coverage/nfolds) + ' at ' + str(total_coverage_accuracy/nfolds)
+
+
+def create_model_for_robustness_test(test_dataset):
+    '''Function to create a model to preform robustness test
+
+    Args:
+        test_dataset: dataset to test accuracy on
+
+    Returns:
+        graph: the created tensorflow graph
+        test_prediction: predicitons
+    '''
+    graph = tf.Graph()
+
+    with graph.as_default():
+        tf_test_dataset = tf.constant(test_dataset)
+
+        # Convolutional layer variables
+        layer1_filter = tf.Variable(tf.truncated_normal([filter1_size, filter1_size, num_channels, depth1], stddev=0.05))
+        layer1_biases = tf.Variable(tf.constant(0.001, shape=[depth1]))
+        layer2_filter = tf.Variable(tf.truncated_normal([filter2_size, filter2_size, depth1, depth2], stddev=0.05))
+        layer2_biases = tf.Variable(tf.constant(0.001, shape=[depth2]))
+        layer3_filter = tf.Variable(tf.truncated_normal([filter3_size, filter3_size, depth2, depth3], stddev=0.05))
+        layer3_biases = tf.Variable(tf.constant(0.001, shape=[depth3]))
+        layer6_filter = tf.Variable(tf.truncated_normal([filter4_size, filter4_size, depth3, depth3], stddev=0.05))
+        layer6_biases = tf.Variable(tf.constant(0.001, shape=[depth3]))
+        layer7_filter = tf.Variable(tf.truncated_normal([filter5_size, filter5_size, depth3, depth3], stddev=0.05))
+        layer7_biases = tf.Variable(tf.constant(0.001, shape=[depth3]))
+        layer8_filter = tf.Variable(tf.truncated_normal([filter5_size, filter5_size, depth3, depth2], stddev=0.05))
+        layer8_biases = tf.Variable(tf.constant(0.001, shape=[depth2]))
+
+        # Fully connected layer variables
+        layer4_weights = tf.Variable(tf.truncated_normal([image_size // 4 * image_size // 16 * depth2, num_hidden], stddev=0.05))
+        layer4_biases = tf.Variable(tf.zeros([num_hidden]))
+        layer5_weights1 = tf.Variable(tf.truncated_normal([num_hidden, num_labels], stddev=0.05))
+        layer5_biases1 = tf.Variable(tf.constant(0.001, shape=[num_labels]))
+        layer5_weights2 = tf.Variable(tf.truncated_normal([num_hidden, num_labels], stddev=0.05))
+        layer5_biases2 = tf.Variable(tf.constant(0.001, shape=[num_labels]))
+        layer5_weights3 = tf.Variable(tf.truncated_normal([num_hidden, num_labels], stddev=0.05))
+        layer5_biases3 = tf.Variable(tf.constant(0.001, shape=[num_labels]))
+        layer5_weights4 = tf.Variable(tf.truncated_normal([num_hidden, num_labels], stddev=0.05))
+        layer5_biases4 = tf.Variable(tf.constant(0.001, shape=[num_labels]))
+        layer5_weights5 = tf.Variable(tf.truncated_normal([num_hidden, num_labels], stddev=0.05))
+        layer5_biases5 = tf.Variable(tf.constant(0.001, shape=[num_labels]))
+
+        def model(data, train=None):
+            """Builds the 8 layer deep convolutional network.
+
+            The first 6 layers are convolutional, and the last two are fully connected.
+
+            The first 7 layers have one classifier, which turns into 5 classifiers before the last layer.
+
+            Args:
+                data: The data to run through the model
+                train: Value that decides whether there is dropout (only used for training).  Defaults to no dropout
+
+            Returns:
+                5 logits calculated from data running through network
+            """
+
+            conv = tf.nn.conv2d(data, layer1_filter, [1, 1, 1, 1], padding='SAME')
+            hidden = tf.nn.relu(conv + layer1_biases)
+            pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
+            if train:
+                pool = tf.nn.dropout(pool,.6)
+
+            conv = tf.nn.conv2d(pool, layer2_filter, [1, 1, 1, 1], padding='SAME')
+            hidden = tf.nn.relu(conv + layer2_biases)
+            pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
+            if train:
+                pool = tf.nn.dropout(pool,.6)
+
+            conv = tf.nn.conv2d(pool, layer3_filter, [1, 1, 1, 1], padding='SAME')
+            hidden = tf.nn.relu(conv + layer3_biases)
+            pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
+            if train:
+                pool = tf.nn.dropout(pool,.6)
+
+            conv = tf.nn.conv2d(pool, layer6_filter, [1, 1, 1, 1], padding='SAME')
+            hidden = tf.nn.relu(conv + layer6_biases)
+            pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
+            if train:
+                 pool = tf.nn.dropout(pool,.6)
+
+            conv = tf.nn.conv2d(pool, layer7_filter, [1, 1, 1, 1], padding='SAME')
+            hidden = tf.nn.relu(conv + layer7_biases)
+            pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,1,1,1], 'SAME')
+            if train:
+                pool = tf.nn.dropout(pool,.6)
+
+            conv = tf.nn.conv2d(pool, layer8_filter, [1, 1, 1, 1], padding='SAME')
+            hidden = tf.nn.relu(conv + layer8_biases)
+            pool = tf.nn.max_pool(hidden, [1,2,2,1], [1,2,2,1], 'SAME')
+            if train:
+                pool = tf.nn.dropout(pool,.6)
+
+            shape = pool.get_shape().as_list()
+            reshape = tf.reshape(pool, [shape[0], shape[1] * shape[2] * shape[3]])
+            hidden = tf.nn.relu(tf.matmul(reshape, layer4_weights) + layer4_biases)
+
+            return (tf.matmul(hidden, layer5_weights1) + layer5_biases1), (tf.matmul(hidden, layer5_weights2) + layer5_biases2), \
+                (tf.matmul(hidden, layer5_weights3) + layer5_biases3), (tf.matmul(hidden, layer5_weights4) + layer5_biases4), \
+                (tf.matmul(hidden, layer5_weights5) + layer5_biases5)
+
+        logits1,logits2,logits3,logits4,logits5 = model(tf_test_dataset, train=False)
+        test_prediction = tf.pack([tf.nn.softmax(logits1),tf.nn.softmax(logits2),tf.nn.softmax(logits3),tf.nn.softmax(logits4),tf.nn.softmax(logits5)])
+        return graph, test_prediction
 
